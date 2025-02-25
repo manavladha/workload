@@ -47,18 +47,17 @@ const GanttChartComponent = ({ users, tasks, viewMode, startDate, setStartDate }
         setStartDate(newStart);
     };
 
-    const getTaskStyle = (task, startIndex, daysInView) => {
+    const getTaskStyle = (task, daysInView) => {
         const taskStart = new Date(task.start_date);
         const taskEnd = new Date(task.end_date);
-        const startIndexWithinView = getDatesForView().findIndex(date => date >= taskStart && date <= taskEnd);
+        const dates = getDatesForView();
 
-        if (startIndexWithinView === -1) return { display: "none" };
+        if (taskEnd < dates[0] || taskStart > dates[dates.length - 1]) return { display: "none" };
 
+        const startIndexWithinView = dates.findIndex(date => date >= taskStart);
+        const endIndexWithinView = dates.findIndex(date => date > taskEnd);
         const adjustedStartIndex = Math.max(startIndexWithinView, 0);
-        const taskDuration = Math.min(
-            daysInView - adjustedStartIndex,
-            Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1
-        );
+        const taskDuration = endIndexWithinView !== -1 ? Math.max(1, endIndexWithinView - adjustedStartIndex) : Math.max(1, Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1);
 
         return {
             gridColumn: `${adjustedStartIndex + 2} / span ${taskDuration}`,
@@ -87,24 +86,23 @@ const GanttChartComponent = ({ users, tasks, viewMode, startDate, setStartDate }
                 <div className="gantt-navigation">
                     <FaChevronLeft size={16} className="nav-icon" onClick={handlePrev} />
                     <h4>{currentView === "week" ? "Week View" : "Month View"}</h4>
-                   
                     <FaChevronRight size={15} className="nav-icon" onClick={handleNext} />
                 </div>
-                <span className="month-label">{getFormattedMonth()}</span> {/* ✅ Shows current month name */}
+                <span className="month-label">{getFormattedMonth()}</span>
                 <select className="view-selector" value={currentView} onChange={(e) => setCurrentView(e.target.value)}>
                     <option value="week">Week View</option>
                     <option value="month">Month View</option>
                 </select>
             </div>
-         
+            
             <div className="gantt-table">
                 <div className="gantt-header" style={{ display: "grid", gridTemplateColumns: `150px repeat(${getDatesForView().length}, 1fr)` }}>
                     <div className="gantt-user-column">Users</div>
                     {getDatesForView().map((date, index) => (
                         <div key={index} className="gantt-date">
                             {currentView === "week"
-                                ? `${date.toLocaleString("en-US", { weekday: "short" })} ${date.getDate()}` // ✅ Shows day + date in week view
-                                : date.getDate()} {/* Only shows date in month view */}
+                                ? `${date.toLocaleString("en-US", { weekday: "short" })} ${date.getDate()}`
+                                : date.getDate()}
                         </div>
                     ))}
                 </div>
@@ -114,14 +112,11 @@ const GanttChartComponent = ({ users, tasks, viewMode, startDate, setStartDate }
                         <div className="gantt-user-cell">{user.name}</div>
                         {tasks
                             .filter(task => task.user_id === user.id)
-                            .map(task => {
-                                const startIndex = getDatesForView().findIndex(date => date >= new Date(task.start_date) && date <= new Date(task.end_date));
-                                return (
-                                    <div key={task.id} style={getTaskStyle(task, startIndex, getDatesForView().length)}>
-                                        {task.name}
-                                    </div>
-                                );
-                            })}
+                            .map(task => (
+                                <div key={task.id} style={getTaskStyle(task, getDatesForView().length)}>
+                                    {task.name}
+                                </div>
+                            ))}
                     </div>
                 ))}
             </div>

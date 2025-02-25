@@ -47,26 +47,27 @@ const TaskGanttView = ({ tasks, viewMode, startDate, setStartDate }) => {
         setStartDate(newStart);
     };
 
-    const getTaskStyle = (task, startIndex, daysInView) => {
+    const getTaskStyle = (task, daysInView) => {
         const taskStart = new Date(task.start_date);
         const taskEnd = new Date(task.end_date);
-        const startIndexWithinView = getDatesForView().findIndex(date => date >= taskStart && date <= taskEnd);
+        const dates = getDatesForView();
 
-        if (startIndexWithinView === -1) return { display: "none" };
+        if (taskEnd < dates[0] || taskStart > dates[dates.length - 1]) return { display: "none" };
 
+        const startIndexWithinView = dates.findIndex(date => date >= taskStart);
+        const endIndexWithinView = dates.findIndex(date => date > taskEnd);
         const adjustedStartIndex = Math.max(startIndexWithinView, 0);
-        const taskDuration = Math.min(
-            daysInView - adjustedStartIndex,
-            Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1
-        );
+        const taskDuration = endIndexWithinView === -1
+            ? Math.min(daysInView - adjustedStartIndex, Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1)
+            : Math.min(endIndexWithinView - adjustedStartIndex, Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1);
 
         return {
             gridColumn: `${adjustedStartIndex + 2} / span ${taskDuration}`,
-            backgroundColor: "#F4F4F4",
-            color: "black",
+            backgroundColor: "#007bff",
+            color: "white",
             border: "1px solid #DFDFDF",
-            padding: "5px",
-            borderRadius: "6px",
+            padding: "4px",
+            borderRadius: "100px",
             fontSize: "14px",
             fontWeight: "bold",
             textAlign: "start",
@@ -74,6 +75,7 @@ const TaskGanttView = ({ tasks, viewMode, startDate, setStartDate }) => {
             overflow: "hidden",
             textOverflow: "ellipsis",
             marginBottom: "5px",
+            paddingLeft: "12px",
         };
     };
 
@@ -111,18 +113,7 @@ const TaskGanttView = ({ tasks, viewMode, startDate, setStartDate }) => {
                 {tasks.map(task => (
                     <div key={task.id} className="gantt-row" style={{ display: "grid", gridTemplateColumns: `150px repeat(${getDatesForView().length}, 1fr)`, borderBottom: "1px solid #ddd", position: "relative" }}>
                         <div className="gantt-task-cell">{task.name}</div>
-                        {getDatesForView().map((date, index) => {
-                            const taskStart = new Date(task.start_date);
-                            const taskEnd = new Date(task.end_date);
-                            if (date >= taskStart && date <= taskEnd && index === 0) {
-                                return (
-                                    <div key={index} style={getTaskStyle(task, index, getDatesForView().length)}>
-                                        {task.name}
-                                    </div>
-                                );
-                            }
-                            return null;
-                        })}
+                        <div style={getTaskStyle(task, getDatesForView().length)}>{task.name}</div>
                     </div>
                 ))}
             </div>
