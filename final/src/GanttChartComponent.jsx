@@ -9,18 +9,23 @@ const GanttChartComponent = ({ users, tasks, orgMembers, viewMode, startDate, se
     setCurrentView(viewMode);
   }, [viewMode]);
 
+  // Debug logs to verify data
+  useEffect(() => {
+    console.log("GanttChartComponent - Users:", users);
+    console.log("GanttChartComponent - OrgMembers:", orgMembers);
+    console.log("GanttChartComponent - Tasks:", tasks);
+  }, [users, orgMembers, tasks]);
+
   const getDatesForView = () => {
     let dates = [];
     let current = new Date(startDate);
-
     if (currentView === "month") {
       current.setDate(1);
     }
-
-    let days = currentView === "week"
-      ? 7
+    // For week view, we show 7 days; for month view, number of days in month.
+    let days = currentView === "week" 
+      ? 7 
       : new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
-
     for (let i = 0; i < days; i++) {
       dates.push(new Date(current));
       current.setDate(current.getDate() + 1);
@@ -54,15 +59,13 @@ const GanttChartComponent = ({ users, tasks, orgMembers, viewMode, startDate, se
     const dates = getDatesForView();
     const taskStart = new Date(task.start_date);
     const taskEnd = new Date(task.end_date);
-
-    if (taskEnd < dates[0] || taskStart > dates[dates.length - 1]) {
-      return { display: "none" };
-    }
+    // If task is completely outside current view, don't display it.
+    if (taskEnd < dates[0] || taskStart > dates[dates.length - 1]) return { display: "none" };
 
     const startIndexWithinView = dates.findIndex(date => date >= taskStart);
     const endIndexWithinView = dates.findIndex(date => date > taskEnd);
     const adjustedStartIndex = Math.max(startIndexWithinView, 0);
-    const taskDuration = endIndexWithinView !== -1
+    const taskDuration = endIndexWithinView !== -1 
       ? Math.max(1, endIndexWithinView - adjustedStartIndex)
       : Math.max(1, Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1);
 
@@ -84,10 +87,7 @@ const GanttChartComponent = ({ users, tasks, orgMembers, viewMode, startDate, se
   };
 
   const getFormattedMonth = () => {
-    return new Intl.DateTimeFormat("en-US", {
-      month: "long",
-      year: "numeric"
-    }).format(startDate);
+    return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(startDate);
   };
 
   return (
@@ -99,44 +99,31 @@ const GanttChartComponent = ({ users, tasks, orgMembers, viewMode, startDate, se
           <FaChevronRight size={15} className="nav-icon" onClick={handleNext} />
         </div>
         <span className="month-label">{getFormattedMonth()}</span>
-        <select
-          className="view-selector"
-          value={currentView}
-          onChange={(e) => setCurrentView(e.target.value)}
-        >
+        <select className="view-selector" value={currentView} onChange={(e) => setCurrentView(e.target.value)}>
           <option value="week">Week View</option>
           <option value="month">Month View</option>
         </select>
       </div>
 
       <div className="gantt-table">
-        <div
-          className="gantt-header"
-          style={{
-            display: "grid",
-            gridTemplateColumns: `150px repeat(${getDatesForView().length}, 1fr)`,
-          }}
-        >
+        <div className="gantt-header" style={{ display: "grid", gridTemplateColumns: `150px repeat(${getDatesForView().length}, 1fr)` }}>
           <div className="gantt-user-column">Users</div>
           {getDatesForView().map((date, index) => (
             <div key={index} className="gantt-date">
-              {currentView === "week"
-                ? `${date.toLocaleString("en-US", {
-                    weekday: "short",
-                  })} ${date.getDate()}`
+              {currentView === "week" 
+                ? `${date.toLocaleString("en-US", { weekday: "short" })} ${date.getDate()}`
                 : date.getDate()}
             </div>
           ))}
         </div>
 
         {users.map((user) => {
-          // 1) Find the orgMember for this user
-          const member = orgMembers.find((m) => m.userId === user.id);
-          // 2) Filter tasks that have org_member_id === that member.id
-          const userTasks = member
-            ? tasks.filter((t) => t.org_member_id === member.id)
+          // Find the orgMember record for this user.
+          const member = orgMembers.find((m) => Number(m.userId) === Number(user.id));
+          // If found, filter tasks matching this member's id.
+          const userTasks = member 
+            ? tasks.filter((t) => Number(t.org_member_id) === Number(member.id))
             : [];
-
           return (
             <div
               key={user.id}

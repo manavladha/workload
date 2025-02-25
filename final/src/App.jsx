@@ -77,8 +77,17 @@ const fetchOrgMembers = async () => {
 
   const addUser = async () => {
     try {
-      await axios.post("http://localhost:8000/users/", newUser);
-      fetchUsers();
+      // 1) get the current user from localStorage
+      const loggedInUser = JSON.parse(localStorage.getItem('user'));
+      // 2) create a payload that includes the new user’s name/email plus the orgId
+      const payload = {
+        ...newUser,
+        orgId: loggedInUser.orgId
+      };
+      // 3) send that payload in the POST request
+      await axios.post("http://localhost:8000/users/", payload);
+
+      fetchUsers();  // re-fetch the updated user list
       setIsUserModalOpen(false);
       setNewUser({ name: "", email: "" });
     } catch (error) {
@@ -181,18 +190,24 @@ const fetchOrgMembers = async () => {
       </div>
 
       {activeTab === "gantt" && (
-        <GanttChartComponent
-        users={users}
-        tasks={tasks}
-        orgMembers={orgMembers}
-        viewMode={viewMode}
-        startDate={startDate}
-        setStartDate={setStartDate}
-      />
+         <GanttChartComponent
+         users={users}
+         tasks={tasks}
+         orgMembers={orgMembers}
+         viewMode={viewMode}
+         startDate={startDate}
+         setStartDate={setStartDate}
+       />
       )}
 
       {activeTab === "list" && (
-        <TaskListView tasks={tasks} users={users} deleteTask={deleteTask} editTaskHandler={editTaskHandler} />
+        <TaskListView
+        tasks={tasks}
+        users={users}
+        orgMembers={orgMembers}
+        deleteTask={deleteTask}
+        editTaskHandler={editTaskHandler}
+      />
       )}
 
       {activeTab === "users" && (
@@ -200,7 +215,7 @@ const fetchOrgMembers = async () => {
       )}
 
       {activeTab === "taskGantt" && (
-        <TaskGanttView tasks={tasks} viewMode={viewMode} startDate={startDate} setStartDate={setStartDate} />
+        <TaskGanttView tasks={tasks} orgMembers={orgMembers} viewMode={viewMode} startDate={startDate} setStartDate={setStartDate} />
       )}
 
       {isUserModalOpen && (

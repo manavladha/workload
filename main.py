@@ -89,6 +89,7 @@ init_db()
 class UserCreate(BaseModel):
     name: str
     email: str
+    orgId: int
 
 class TaskCreate(BaseModel):
     name: str
@@ -134,6 +135,19 @@ def login(request: LoginRequest):
         "orgId": user["orgId"],
         "accessRole": user["accessRole"]
     }
+# Get org member by org id
+@app.get("/orgmembers/")
+def get_org_members(orgId: int = Query(None)):
+    conn = get_db()
+    cursor = conn.cursor()
+    if orgId is not None:
+        rows = cursor.execute("SELECT * FROM orgMembers WHERE orgId = ?", (orgId,)).fetchall()
+    else:
+        rows = cursor.execute("SELECT * FROM orgMembers").fetchall()
+    conn.close()
+
+    # Convert sqlite3.Row objects to dictionaries
+    return [dict(row) for row in rows]
 
 # GET users filtered by orgId
 @app.get("/users/")
@@ -146,6 +160,112 @@ def get_users(orgId: int = Query(None)):
         users = cursor.execute("SELECT * FROM users").fetchall()
     conn.close()
     return [dict(user) for user in users]
+
+# Post user call
+@app.post("/users/")
+def create_user(user: UserCreate):
+    conn = get_db()
+    cursor = conn.cursor()
+    # Optionally, set default "member" role or emailVerified=0, etc.
+    try:
+        cursor.execute(
+            "INSERT INTO users (name, email, orgId, emailVerified, accessRole) VALUES (?, ?, ?, ?, ?)",
+            (user.name, user.email, user.orgId, 0, 'member')
+        )
+        conn.commit()
+        user_id = cursor.lastrowid
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Email already exists")
+
+    # Optionally, also create an entry in orgMembers:
+    now = datetime.datetime.utcnow().isoformat()
+    cursor.execute(
+        "INSERT INTO orgMembers (orgId, userId, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)",
+        (user.orgId, user_id, 'member', now, now)
+    )
+    conn.commit()
+    conn.close()
+
+    return {
+        "id": user_id,
+        "name": user.name,
+        "email": user.email,
+        "orgId": user.orgId
+    }
+
+@app.put("/users/{user_id}")
+def update_user(user_id: int, user: UserCreate):
+    # Ensure that UserCreate includes orgId:
+    # class UserCreate(BaseModel):
+    #     name: str
+    #     email: str
+    #     orgId: int
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE users SET name = ?, email = ?, orgId = ? WHERE id = ?",
+            (user.name, user.email, user.orgId, user_id)
+        )
+        conn.commit()
+        if cursor.rowcount == 0:
+            conn.close()
+            raise HTTPException(status_code=404, detail="User not found")
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Email already exists")
+    conn.close()
+    return {"id": user_id, "name": user.name, "email": user.email, "orgId": user.orgId}
+
+# ---------------------------
+# Delete User Endpoint
+# ---------------------------
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    if cursor.rowcount == 0:
+        conn.close()
+        raise HTTPException(status_code=404, detail="User not found")
+    conn.close()
+    return {"message": "User deleted successfully"}
+
+# ---------------------------
+# Update Task Endpoint
+# ---------------------------
+@app.put("/tasks/{task_id}")
+def update_task(task_id: int, task: TaskCreate):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE tasks SET name = ?, org_member_id = ?, start_date = ?, end_date = ?, description = ? WHERE id = ?",
+        (task.name, task.org_member_id, str(task.start_date), str(task.end_date), task.description, task_id)
+    )
+    conn.commit()
+    if cursor.rowcount == 0:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
+    conn.close()
+    return {"id": task_id, **task.dict()}
+
+# ---------------------------
+# Delete Task Endpoint
+# ---------------------------
+@app.delete("/tasks/{task_id}")
+def delete_task(task_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    conn.commit()
+    if cursor.rowcount == 0:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
+    conn.close()
+    return {"message": "Task deleted successfully"}
+
 
 # Create task: now expects org_member_id instead of user_id
 @app.post("/tasks/")
