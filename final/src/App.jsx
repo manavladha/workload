@@ -3,6 +3,7 @@ import axios from "axios";
 import GanttChartComponent from "./GanttChartComponent";
 import TaskListView from "./TaskListView";
 import UserListView from "./UserListView";
+import TaskGanttView from "./TaskGanttView"; // Import the new component
 import "./index.css";
 
 function App() {
@@ -44,7 +45,7 @@ function App() {
             await axios.post("http://localhost:8000/users/", newUser);
             fetchUsers();
             setIsUserModalOpen(false);
-            setNewUser({ name: "", email: "" }); // Reset the form
+            setNewUser({ name: "", email: "" });
         } catch (error) {
             console.error("Error adding user", error);
         }
@@ -61,7 +62,7 @@ function App() {
             });
             fetchTasks();
             setIsTaskModalOpen(false);
-            setNewTask({ name: "", userId: "", startDate: "", endDate: "", description: "" }); // Reset the form
+            setNewTask({ name: "", userId: "", startDate: "", endDate: "", description: "" });
         } catch (error) {
             console.error("Error adding task", error);
         }
@@ -114,7 +115,8 @@ function App() {
             </div>
 
             <div className="tabs">
-                <button className={`tab-button ${activeTab === "gantt" ? "active" : ""}`} onClick={() => setActiveTab("gantt")}>Gantt View</button>
+                <button className={`tab-button ${activeTab === "gantt" ? "active" : ""}`} onClick={() => setActiveTab("gantt")}>Workload View</button>
+                <button className={`tab-button ${activeTab === "taskGantt" ? "active" : ""}`} onClick={() => setActiveTab("taskGantt")}>Task Gantt View</button>
                 <button className={`tab-button ${activeTab === "list" ? "active" : ""}`} onClick={() => setActiveTab("list")}>Task List</button>
                 <button className={`tab-button ${activeTab === "users" ? "active" : ""}`} onClick={() => setActiveTab("users")}>User List</button>
             </div>
@@ -129,6 +131,10 @@ function App() {
 
             {activeTab === "users" && (
                 <UserListView users={users} deleteUser={deleteUser} editUserHandler={editUserHandler} />
+            )}
+
+            {activeTab === "taskGantt" && (
+                <TaskGanttView tasks={tasks} viewMode={viewMode} startDate={startDate} setStartDate={setStartDate} />
             )}
 
             {isUserModalOpen && (

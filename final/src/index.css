@@ -286,6 +286,17 @@ select{
     z-index: 11; /* Higher than the header */
 }
 
+.gantt-task-column {
+  width: 120px;
+  min-width: 120px;
+  text-align: left;
+  padding: 10px;
+  background: #e9ecef;
+  position: sticky;
+  left: 0;
+  border-right: 2px solid #ccc;
+  z-index: 11; /* Higher than the header */
+}
 /* Date Header Styling */
 .gantt-date {
     text-align: center;
@@ -316,6 +327,18 @@ select{
     border-right: 1px solid #ccc;
     font-weight: bold;
     z-index: 9;
+}
+
+.gantt-task-cell {
+  width: 120px;
+  text-align: left;
+  padding: 10px;
+  background: #f8f9fa;
+  position: sticky;
+  left: 0;
+  border-right: 1px solid #ccc;
+  font-weight: bold;
+  z-index: 9;
 }
 
 /* Task Styling */
