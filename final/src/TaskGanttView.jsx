@@ -1,20 +1,17 @@
-// TaskGanttView.jsx
 import React, { useState, useEffect } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 const TaskGanttView = ({ tasks, startDate, setStartDate }) => {
-  // Force the view to be "month"
   const [currentView, setCurrentView] = useState("month");
 
   useEffect(() => {
     setCurrentView("month");
   }, []);
 
-  // Always generate dates for the month view.
   const getDatesForView = () => {
     let dates = [];
     let current = new Date(startDate);
-    current.setDate(1); // Always start at the first of the month.
+    current.setDate(1);
     let days = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
     for (let i = 0; i < days; i++) {
       dates.push(new Date(current));
@@ -23,7 +20,6 @@ const TaskGanttView = ({ tasks, startDate, setStartDate }) => {
     return dates;
   };
 
-  // Navigation: Shift the month
   const handlePrev = () => {
     let newStart = new Date(startDate);
     newStart.setMonth(newStart.getMonth() - 1);
@@ -38,7 +34,6 @@ const TaskGanttView = ({ tasks, startDate, setStartDate }) => {
     setStartDate(newStart);
   };
 
-  // Calculate task style based on its date range
   const getTaskStyle = (task) => {
     const dates = getDatesForView();
     const taskStart = new Date(task.start_date);
@@ -83,7 +78,6 @@ const TaskGanttView = ({ tasks, startDate, setStartDate }) => {
           <FaChevronRight size={15} className="nav-icon" onClick={handleNext} />
         </div>
         <span className="month-label">{getFormattedMonth()}</span>
-        {/* The view selector is removed since only Month View is available */}
       </div>
 
       <div className="gantt-table">

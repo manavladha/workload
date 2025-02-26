@@ -1,4 +1,3 @@
-// GanttChartComponent.jsx
 import React, { useState, useEffect } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
@@ -9,7 +8,6 @@ const GanttChartComponent = ({ users, tasks, orgMembers, viewMode, startDate, se
     setCurrentView(viewMode);
   }, [viewMode]);
 
-  // Debug logs to verify data
   useEffect(() => {
     console.log("GanttChartComponent - Users:", users);
     console.log("GanttChartComponent - OrgMembers:", orgMembers);
@@ -22,7 +20,6 @@ const GanttChartComponent = ({ users, tasks, orgMembers, viewMode, startDate, se
     if (currentView === "month") {
       current.setDate(1);
     }
-    // For week view, we show 7 days; for month view, number of days in month.
     let days = currentView === "week" 
       ? 7 
       : new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
@@ -59,7 +56,6 @@ const GanttChartComponent = ({ users, tasks, orgMembers, viewMode, startDate, se
     const dates = getDatesForView();
     const taskStart = new Date(task.start_date);
     const taskEnd = new Date(task.end_date);
-    // If task is completely outside current view, don't display it.
     if (taskEnd < dates[0] || taskStart > dates[dates.length - 1]) return { display: "none" };
 
     const startIndexWithinView = dates.findIndex(date => date >= taskStart);
@@ -118,9 +114,7 @@ const GanttChartComponent = ({ users, tasks, orgMembers, viewMode, startDate, se
         </div>
 
         {users.map((user) => {
-          // Find the orgMember record for this user.
           const member = orgMembers.find((m) => Number(m.userId) === Number(user.id));
-          // If found, filter tasks matching this member's id.
           const userTasks = member 
             ? tasks.filter((t) => Number(t.org_member_id) === Number(member.id))
             : [];

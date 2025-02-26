@@ -84,12 +84,11 @@ const UserListView = ({ users, deleteUser, editUserHandler }) => {
                             </td>
                             <td>
                                 {editUser === user.id ? (
-                                    <button class="primary-button" onClick={saveUser}>Save</button>
+                                    <button className="primary-button" onClick={saveUser}>Save</button>
                                 ) : (
                                     <>
-                                        <button class="secondary-button" onClick={() => handleEdit(user)}>Edit</button>
-                                        <button class="danger-button" onClick={() => deleteUser(user.id)}>Delete</button>
-                                        
+                                        <button className="secondary-button" onClick={() => handleEdit(user)}>Edit</button>
+                                        <button className="danger-button" onClick={() => deleteUser(user.id)}>Delete</button>
                                     </>
                                 )}
                             </td>

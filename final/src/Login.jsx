@@ -47,7 +47,7 @@ function Login() {
           required
         />
         <br /><br />
-        <button class="primary-button" type="submit">Login</button>
+        <button className="primary-button" type="submit">Login</button>
       </form>
       <p>
         Don’t have an account? <Link to="/signup">Sign up here</Link>.

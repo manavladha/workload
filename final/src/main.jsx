@@ -1,4 +1,3 @@
-// main.jsx
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -17,7 +16,6 @@ createRoot(document.getElementById('root')).render(
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/otp-verify" element={<OTPVerification />} />
-      {/* Any other path should be protected */}
       <Route
         path="/*"
         element={

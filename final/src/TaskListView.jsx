@@ -3,7 +3,6 @@ import React, { useState } from "react";
 const TaskListView = ({ tasks, users, orgMembers, deleteTask, editTaskHandler }) => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
   const [editTask, setEditTask] = useState(null);
-  // Note: update taskDetails field from user_id to org_member_id
   const [taskDetails, setTaskDetails] = useState({ name: "", org_member_id: "", start_date: "", end_date: "", description: "" });
 
   const sortedTasks = React.useMemo(() => {
@@ -40,9 +39,7 @@ const TaskListView = ({ tasks, users, orgMembers, deleteTask, editTaskHandler })
     setEditTask(null);
   };
 
-  // Helper: Map task.org_member_id to a user name.
   const getUserNameByTask = (task) => {
-    // Ensure both IDs are numbers:
     const member = orgMembers.find(m => Number(m.id) === Number(task.org_member_id));
     if (member) {
       const user = users.find(u => Number(u.id) === Number(member.userId));

@@ -62,7 +62,7 @@ function Signup() {
             required
           />
           <br /><br />
-          <button class="primary-button" type="submit">Sign Up</button>
+          <button className="primary-button" type="submit">Sign Up</button>
         </form>
       )}
       

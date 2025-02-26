@@ -10,12 +10,11 @@ import { useNavigate } from "react-router-dom";
 function App() {
   const [users, setUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
-  // Note: We no longer fetch orgMembers for display; team members are loaded from the users table.
+  const [orgMembers, setOrgMembers] = useState([]);
   const [viewMode, setViewMode] = useState("week");
   const [startDate, setStartDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState("gantt");
   const [newUser, setNewUser] = useState({ name: "", email: "" });
-  // For tasks, we now store the selected user id (which we later convert to orgMember id)
   const [newTask, setNewTask] = useState({
     name: "",
     userId: "",
@@ -25,50 +24,62 @@ function App() {
   });
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [userOrgs, setUserOrgs] = useState([]);
+  const [selectedOrg, setSelectedOrg] = useState(null);
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchUsers();
-    fetchTasks();
-  }, []);
-
-  // App.jsx
-const [orgMembers, setOrgMembers] = useState([]);
-
-useEffect(() => {
-  fetchUsers();
-  fetchOrgMembers();
-  fetchTasks();
-}, []);
-
-const fetchOrgMembers = async () => {
-  try {
-    const loggedInUser = JSON.parse(localStorage.getItem('user'));
-    const orgId = loggedInUser.orgId;
-    const response = await axios.get("http://localhost:8000/orgmembers/", { params: { orgId } });
-    setOrgMembers(response.data);
-  } catch (error) {
-    console.error("Error fetching org members", error);
-  }
-};
-
-  const fetchUsers = async () => {
+  // New function to fetch all organizations the logged-in user belongs to
+  const fetchUserOrgs = async () => {
     try {
       const loggedInUser = JSON.parse(localStorage.getItem('user'));
-      const orgId = loggedInUser.orgId;
-      const response = await axios.get("http://localhost:8000/users/", { params: { orgId } });
+      const response = await axios.get("http://localhost:8000/user-organizations/", { 
+        params: { userId: loggedInUser.user_id || loggedInUser.id }
+      });
+      setUserOrgs(response.data);
+      if (response.data.length > 0 && !selectedOrg) {
+        setSelectedOrg(response.data[0].id);
+      }
+    } catch (error) {
+      console.error("Error fetching user organizations", error);
+    }
+  };
+
+  // Re-fetch data whenever the selected organization changes.
+  useEffect(() => {
+    fetchUserOrgs();
+  }, []);
+
+  useEffect(() => {
+    if (selectedOrg) {
+      fetchUsers();
+      fetchOrgMembers();
+      fetchTasks();
+    }
+  }, [selectedOrg]);
+
+  // Updated to use the new /users/ endpoint that fetches via orgMembers join
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get("http://localhost:8000/users/", { params: { orgId: selectedOrg } });
       setUsers(response.data);
     } catch (error) {
       console.error("Error fetching users", error);
     }
   };
 
+  const fetchOrgMembers = async () => {
+    try {
+      const response = await axios.get("http://localhost:8000/orgmembers/", { params: { orgId: selectedOrg } });
+      setOrgMembers(response.data);
+    } catch (error) {
+      console.error("Error fetching org members", error);
+    }
+  };
+
   const fetchTasks = async () => {
     try {
-      const loggedInUser = JSON.parse(localStorage.getItem('user'));
-      const orgId = loggedInUser.orgId;
-      const response = await axios.get("http://localhost:8000/tasks/", { params: { orgId } });
+      const response = await axios.get("http://localhost:8000/tasks/", { params: { orgId: selectedOrg } });
       setTasks(response.data);
     } catch (error) {
       console.error("Error fetching tasks", error);
@@ -77,17 +88,12 @@ const fetchOrgMembers = async () => {
 
   const addUser = async () => {
     try {
-      // 1) get the current user from localStorage
-      const loggedInUser = JSON.parse(localStorage.getItem('user'));
-      // 2) create a payload that includes the new user’s name/email plus the orgId
       const payload = {
         ...newUser,
-        orgId: loggedInUser.orgId
+        orgId: selectedOrg
       };
-      // 3) send that payload in the POST request
       await axios.post("http://localhost:8000/users/", payload);
-
-      fetchUsers();  // re-fetch the updated user list
+      fetchUsers();
       setIsUserModalOpen(false);
       setNewUser({ name: "", email: "" });
     } catch (error) {
@@ -95,10 +101,12 @@ const fetchOrgMembers = async () => {
     }
   };
 
+  // Updated addTask: map selected user to the orgMember record using /orgmember/byuserorg/
   const addTask = async () => {
     try {
-      // First, convert the selected userId (from the users table) into the corresponding orgMember id.
-      const mappingRes = await axios.get("http://localhost:8000/orgmember/byuser/", { params: { userId: newTask.userId } });
+      const mappingRes = await axios.get("http://localhost:8000/orgmember/byuserorg/", { 
+        params: { userId: newTask.userId, orgId: selectedOrg } 
+      });
       const orgMemberId = mappingRes.data.id;
       
       await axios.post("http://localhost:8000/tasks/", {
@@ -161,6 +169,15 @@ const fetchOrgMembers = async () => {
     <div className="app-container">
       <div className="header">
         <h1>Workload Management</h1>
+        {/* Organization dropdown */}
+        <div className="org-dropdown">
+          <label>Select Organization: </label>
+          <select value={selectedOrg || ""} onChange={(e) => setSelectedOrg(e.target.value)}>
+            {userOrgs.map(org => (
+              <option key={org.id} value={org.id}>{org.name}</option>
+            ))}
+          </select>
+        </div>
         <div className="button-group">
           <button onClick={() => setIsUserModalOpen(true)} className="primary-button">
             Add User
@@ -255,7 +272,6 @@ const fetchOrgMembers = async () => {
               value={newTask.description}
               onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
             />
-            {/* Dropdown now uses users (team members) loaded from the user collection */}
             <select
               value={newTask.userId}
               onChange={(e) => setNewTask({ ...newTask, userId: e.target.value })}

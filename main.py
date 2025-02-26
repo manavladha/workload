@@ -33,7 +33,7 @@ def init_db():
             accessRole TEXT DEFAULT 'member'
         )
     ''')
-    # Organizations table
+    # Organizations table – the "name" field is used as the org name.
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS organizations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,7 +115,7 @@ class LoginRequest(BaseModel):
 # Endpoints
 # ---------------------------
 
-# Login endpoint verifies that the email exists and the password matches.
+# Login endpoint: verifies email exists and password matches.
 @app.post("/login/")
 def login(request: LoginRequest):
     conn = get_db()
@@ -135,7 +135,8 @@ def login(request: LoginRequest):
         "orgId": user["orgId"],
         "accessRole": user["accessRole"]
     }
-# Get org member by org id
+
+# Get org members by orgId
 @app.get("/orgmembers/")
 def get_org_members(orgId: int = Query(None)):
     conn = get_db()
@@ -145,8 +146,6 @@ def get_org_members(orgId: int = Query(None)):
     else:
         rows = cursor.execute("SELECT * FROM orgMembers").fetchall()
     conn.close()
-
-    # Convert sqlite3.Row objects to dictionaries
     return [dict(row) for row in rows]
 
 # GET users filtered by orgId
@@ -155,52 +154,81 @@ def get_users(orgId: int = Query(None)):
     conn = get_db()
     cursor = conn.cursor()
     if orgId:
-        users = cursor.execute("SELECT * FROM users WHERE orgId = ?", (orgId,)).fetchall()
+        # Fetch users who are members of the given org (via orgMembers join)
+        users = cursor.execute(
+            "SELECT DISTINCT u.* FROM users u JOIN orgMembers om ON u.id = om.userId WHERE om.orgId = ?",
+            (orgId,)
+        ).fetchall()
     else:
         users = cursor.execute("SELECT * FROM users").fetchall()
     conn.close()
     return [dict(user) for user in users]
 
-# Post user call
+# get user organizations
+@app.get("/user-organizations/")
+def get_user_organizations(userId: int = Query(...)):
+    conn = get_db()
+    cursor = conn.cursor()
+    orgs = cursor.execute("""
+      SELECT o.* 
+      FROM organizations o 
+      JOIN orgMembers om ON o.id = om.orgId 
+      WHERE om.userId = ?
+    """, (userId,)).fetchall()
+    conn.close()
+    return [dict(o) for o in orgs]
+
+
+# POST user call – modified to add an org member if the email already exists.
 @app.post("/users/")
 def create_user(user: UserCreate):
     conn = get_db()
     cursor = conn.cursor()
-    # Optionally, set default "member" role or emailVerified=0, etc.
-    try:
+    now = datetime.datetime.utcnow().isoformat()
+    # Check if a user with this email already exists.
+    cursor.execute("SELECT * FROM users WHERE email = ?", (user.email,))
+    existing_user = cursor.fetchone()
+    if existing_user:
+        user_id = existing_user["id"]
+        # If the user is not already a member of this organization, add them.
+        cursor.execute("SELECT * FROM orgMembers WHERE orgId = ? AND userId = ?", (user.orgId, user_id))
+        if not cursor.fetchone():
+            cursor.execute(
+                "INSERT INTO orgMembers (orgId, userId, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)",
+                (user.orgId, user_id, 'member', now, now)
+            )
+            conn.commit()
+        conn.close()
+        return {
+            "id": user_id,
+            "name": existing_user["name"],
+            "email": existing_user["email"],
+            "orgId": user.orgId
+        }
+    else:
+        # Create a new user.
         cursor.execute(
             "INSERT INTO users (name, email, orgId, emailVerified, accessRole) VALUES (?, ?, ?, ?, ?)",
             (user.name, user.email, user.orgId, 0, 'member')
         )
         conn.commit()
         user_id = cursor.lastrowid
-    except sqlite3.IntegrityError:
+        # Create an orgMembers entry for the new user.
+        cursor.execute(
+            "INSERT INTO orgMembers (orgId, userId, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)",
+            (user.orgId, user_id, 'member', now, now)
+        )
+        conn.commit()
         conn.close()
-        raise HTTPException(status_code=400, detail="Email already exists")
-
-    # Optionally, also create an entry in orgMembers:
-    now = datetime.datetime.utcnow().isoformat()
-    cursor.execute(
-        "INSERT INTO orgMembers (orgId, userId, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)",
-        (user.orgId, user_id, 'member', now, now)
-    )
-    conn.commit()
-    conn.close()
-
-    return {
-        "id": user_id,
-        "name": user.name,
-        "email": user.email,
-        "orgId": user.orgId
-    }
+        return {
+            "id": user_id,
+            "name": user.name,
+            "email": user.email,
+            "orgId": user.orgId
+        }
 
 @app.put("/users/{user_id}")
 def update_user(user_id: int, user: UserCreate):
-    # Ensure that UserCreate includes orgId:
-    # class UserCreate(BaseModel):
-    #     name: str
-    #     email: str
-    #     orgId: int
     conn = get_db()
     cursor = conn.cursor()
     try:
@@ -218,9 +246,6 @@ def update_user(user_id: int, user: UserCreate):
     conn.close()
     return {"id": user_id, "name": user.name, "email": user.email, "orgId": user.orgId}
 
-# ---------------------------
-# Delete User Endpoint
-# ---------------------------
 @app.delete("/users/{user_id}")
 def delete_user(user_id: int):
     conn = get_db()
@@ -233,9 +258,6 @@ def delete_user(user_id: int):
     conn.close()
     return {"message": "User deleted successfully"}
 
-# ---------------------------
-# Update Task Endpoint
-# ---------------------------
 @app.put("/tasks/{task_id}")
 def update_task(task_id: int, task: TaskCreate):
     conn = get_db()
@@ -251,9 +273,6 @@ def update_task(task_id: int, task: TaskCreate):
     conn.close()
     return {"id": task_id, **task.dict()}
 
-# ---------------------------
-# Delete Task Endpoint
-# ---------------------------
 @app.delete("/tasks/{task_id}")
 def delete_task(task_id: int):
     conn = get_db()
@@ -266,8 +285,6 @@ def delete_task(task_id: int):
     conn.close()
     return {"message": "Task deleted successfully"}
 
-
-# Create task: now expects org_member_id instead of user_id
 @app.post("/tasks/")
 def create_task(task: TaskCreate):
     conn = get_db()
@@ -281,7 +298,6 @@ def create_task(task: TaskCreate):
     conn.close()
     return {"id": task_id, **task.dict()}
 
-# GET tasks filtered by orgId via a join with orgMembers
 @app.get("/tasks/")
 def get_tasks(orgId: int = Query(None)):
     conn = get_db()
@@ -307,6 +323,18 @@ def get_org_member_by_user(userId: int = Query(...)):
          return dict(org_member)
     else:
          raise HTTPException(status_code=404, detail="OrgMember not found for the given user")
+
+# New endpoint: Get orgMember by user id and organization id.
+@app.get("/orgmember/byuserorg/")
+def get_org_member_by_user_and_org(userId: int, orgId: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    org_member = cursor.execute("SELECT * FROM orgMembers WHERE userId = ? AND orgId = ?", (userId, orgId)).fetchone()
+    conn.close()
+    if org_member:
+         return dict(org_member)
+    else:
+         raise HTTPException(status_code=404, detail="OrgMember not found for the given user and org")
 
 @app.post("/signup/")
 def signup(request: SignupRequest):
